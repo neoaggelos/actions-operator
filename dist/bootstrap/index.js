@@ -1593,7 +1593,16 @@ function microk8s_init() {
         yield exec_as_microk8s("microk8s status --wait-ready");
         yield exec_as_microk8s("microk8s enable storage dns rbac");
         // workarounds for https://bugs.launchpad.net/juju/+bug/1937282
-        yield exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/coredns");
+
+        console.log("Waiting for CoreDNS...");
+        for (let i = 0; i < 12; i++) {
+          let rc = yield exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/coredns", ignoreFail);
+          if (rc == 0) {
+            break;
+          }
+          console.log("Will retry");
+          yield new Promise(resolve => setTimeout(resolve, 10000));
+        }
         yield exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/hostpath-provisioner");
         yield exec_as_microk8s("microk8s kubectl create serviceaccount test-sa");
         let rc = 0;
@@ -1818,7 +1827,7 @@ module.exports = require("util");;
 /************************************************************************/
 /******/ 	// The module cache
 /******/ 	var __webpack_module_cache__ = {};
-/******/ 	
+/******/
 /******/ 	// The require function
 /******/ 	function __nccwpck_require__(moduleId) {
 /******/ 		// Check if module is in cache
@@ -1831,7 +1840,7 @@ module.exports = require("util");;
 /******/ 			// no module.loaded needed
 /******/ 			exports: {}
 /******/ 		};
-/******/ 	
+/******/
 /******/ 		// Execute the module function
 /******/ 		var threw = true;
 /******/ 		try {
@@ -1840,14 +1849,14 @@ module.exports = require("util");;
 /******/ 		} finally {
 /******/ 			if(threw) delete __webpack_module_cache__[moduleId];
 /******/ 		}
-/******/ 	
+/******/
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
-/******/ 	
+/******/
 /************************************************************************/
 /******/ 	/* webpack/runtime/compat */
-/******/ 	
+/******/
 /******/ 	__nccwpck_require__.ab = __dirname + "/";/************************************************************************/
 /******/ 	// module exports must be returned from runtime so entry inlining is disabled
 /******/ 	// startup

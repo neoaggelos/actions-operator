@@ -13,12 +13,33 @@ async function exec_as_microk8s(cmd, options = {}) {
     return await exec.exec('sg', ['microk8s', '-c', cmd], options);
 }
 
+async function wait_for_coredns(timeout, tries) {
+    await exec_as_microk8s("microk8s kubectl get pod,node,svc -A")
+    let rc = 0;
+    for (let i = 0; i < tries; i++) {
+        try {
+            rc = await exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/coredns", ignoreFail)
+            if (rc == 0) {
+                return true;
+            }
+        } catch(err) {
+            console.log(`Error: {err}`)
+            console.log("Will retry")
+        }
+        await new Promise(resolve => setTimeout(resolve, timeout))
+    }
+    return false;
+}
+
 async function microk8s_init() {
     // microk8s needs some additional things done to ensure it's ready for Juju.
     await exec_as_microk8s("microk8s status --wait-ready");
     await exec_as_microk8s("microk8s enable storage dns rbac");
     // workarounds for https://bugs.launchpad.net/juju/+bug/1937282
-    await exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/coredns");
+    if (! await wait_for_coredns(10000, 12)) {
+        core.setFailed("Timed out waiting for CoreDNS");
+        return false;
+    }
     await exec_as_microk8s("microk8s kubectl -n kube-system rollout status deployment/hostpath-provisioner");
     await exec_as_microk8s("microk8s kubectl create serviceaccount test-sa");
     let rc = 0;
